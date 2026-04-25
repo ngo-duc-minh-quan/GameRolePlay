@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TURN BATTLE RPG</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@400;600;700&display=swap');
+
+:root {
+  --c-bg: #0a0a0f;
+  --c-panel: #12121a;
+  --c-border: #1e2035;
+  --c-accent: #e8c84a;
+  --c-accent2: #ff4f4f;
+  --c-blue: #4fd1ff;
+  --c-green: #4fff9a;
+  --c-purple: #9b59ff;
+  --c-text: #d0d0e0;
+  --c-dim: #555566;
+  --font-pixel: 'Press Start 2P', monospace;
+  --font-ui: 'Rajdhani', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(155,89,255,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 30% at 80% 110%, rgba(79,209,255,0.08) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── SCAN LINES ─── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+  pointer-events: none; z-index: 999;
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN MANAGEMENT
+═══════════════════════════════════════════ */
+.screen { display: none; position: relative; z-index: 1; }
+.screen.active { display: flex; }
+
+/* ═══════════════════════════════════════════
+   SELECTION SCREEN
+═══════════════════════════════════════════ */
+#selection-screen {
+  flex-direction: row;
+  height: 100vh; width: 100vw;
+}
+
+.sel-left {
+  flex: 1; padding: 40px 50px;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+
+.sel-left::-webkit-scrollbar { width: 4px; }
+.sel-left::-webkit-scrollbar-track { background: transparent; }
+.sel-left::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
+
+.screen-title {
+  font-family: var(--font-pixel);
+  font-size: 14px; color: var(--c-accent);
+  letter-spacing: 4px;
+  text-shadow: 0 0 20px rgba(232,200,74,0.5);
+  margin-bottom: 6px;
+}
+.screen-sub { font-size: 13px; color: var(--c-dim); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 30px; }
+
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.char-card {
+  border: 1px solid var(--c-border);
+  background: var(--c-panel);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  position: relative; overflow: hidden;
+}
+.char-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+.char-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--c-blue);
+  box-shadow: 0 8px 30px rgba(79,209,255,0.2);
+}
+.char-card.selected {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 1px var(--c-accent), 0 8px 30px rgba(232,200,74,0.25);
+}
+.char-card img {
+  width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block;
+  filter: saturate(0.8);
+  transition: filter 0.3s;
+}
+.char-card:hover img, .char-card.selected img { filter: saturate(1.1); }
+.char-card-name {
+  padding: 10px 8px;
+  font-family: var(--font-pixel); font-size: 7px;
+  text-align: center; color: var(--c-text);
+  letter-spacing: 1px;
+  border-top: 1px solid var(--c-border);
+}
+
+/* ─── RIGHT DETAIL PANEL ─── */
+.sel-right {
+  width: 360px;
+  background: var(--c-panel);
+  border-left: 1px solid var(--c-border);
+  padding: 40px 30px;
+  display: flex; flex-direction: column;
+  gap: 20px;
+  transition: opacity 0.3s;
+}
+
+.detail-portrait {
+  width: 100%; aspect-ratio: 1/1; object-fit: cover;
+  border: 1px solid var(--c-border);
+  display: block;
+}
+
+.detail-name {
+  font-family: var(--font-pixel); font-size: 13px;
+  color: var(--c-accent); letter-spacing: 2px;
+}
+
+.stat-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 600;
+}
+.stat-label { color: var(--c-dim); width: 60px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 1px; }
+.stat-bar-wrap { flex: 1; height: 6px; background: var(--c-border); border-radius: 3px; overflow: hidden; }
+.stat-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.stat-val { color: var(--c-text); min-width: 30px; text-align: right; font-size: 14px; }
+
+.skills-section { display: flex; flex-direction: column; gap: 8px; }
+.skills-title { font-size: 11px; color: var(--c-dim); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+.skill-chip {
+  padding: 8px 12px;
+  border: 1px solid var(--c-border);
+  font-size: 13px; font-weight: 600;
+  display: flex; justify-content: space-between;
+  color: var(--c-text);
+}
+.skill-chip-tags { display: flex; gap: 6px; }
+.tag {
+  font-size: 10px; padding: 2px 6px;
+  border-radius: 2px; font-weight: 700; letter-spacing: 1px;
+}
+.tag-dmg { background: rgba(255,79,79,0.2); color: var(--c-accent2); border: 1px solid rgba(255,79,79,0.3); }
+.tag-acc { background: rgba(79,209,255,0.15); color: var(--c-blue); border: 1px solid rgba(79,209,255,0.3); }
+
+.btn-primary {
+  padding: 16px;
+  background: var(--c-accent); border: none; color: #0a0a0f;
+  font-family: var(--font-pixel); font-size: 9px; letter-spacing: 2px;
+  cursor: pointer; transition: filter 0.2s, transform 0.2s;
+  text-transform: uppercase;
+}
+.btn-primary:hover { filter: brightness(1.2); transform: translateY(-2px); }
+.btn-primary:disabled { background: var(--c-border); color: var(--c-dim); cursor: not-allowed; transform: none; filter: none; }
+
+/* ═══════════════════════════════════════════
+   BATTLE SCREEN
+═══════════════════════════════════════════ */
+#battle-screen {
+  flex-direction: column;
+  height: 100vh; width: 100vw;
+  padding: 20px;
+  gap: 16px;
+}
+
+/* ─── ARENA TOP ─── */
+.arena {
+  flex: 1;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 20px;
+  position: relative;
+  padding: 0 20px 20px;
+  border: 1px solid var(--c-border);
+  background: var(--c-panel);
+  min-height: 0;
+}
+
+.arena-bg-text {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-family: var(--font-pixel); font-size: 48px;
+  color: rgba(255,255,255,0.03); letter-spacing: 10px;
+  pointer-events: none; user-select: none; white-space: nowrap;
+}
+
+/* ─── FIGHTER CARD ─── */
+.fighter {
+  display: flex; flex-direction: column;
+  width: 220px; flex-shrink: 0;
+}
+.fighter-name {
+  font-family: var(--font-pixel); font-size: 8px;
+  letter-spacing: 2px; margin-bottom: 8px;
+}
+.fighter-portrait {
+  width: 100%; height: 220px; object-fit: cover;
+  border: 1px solid var(--c-border);
+  display: block;
+  filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8));
+}
+.fighter.shake {
+  animation: shake 0.4s ease;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  15%{transform:translateX(-8px) rotate(-1deg)}
+  30%{transform:translateX(8px) rotate(1deg)}
+  45%{transform:translateX(-6px)}
+  60%{transform:translateX(6px)}
+  75%{transform:translateX(-3px)}
+}
+.hp-block { margin-top: 10px; }
+.hp-label { font-size: 11px; color: var(--c-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; display: flex; justify-content: space-between; }
+.hp-nums { font-weight: 700; font-size: 14px; }
+.hp-bar-outer { height: 8px; background: var(--c-border); border-radius: 4px; overflow: hidden; }
+.hp-bar-inner { height: 100%; border-radius: 4px; transition: width 0.5s ease, background-color 0.5s; }
+.hp-high   { background: var(--c-green); }
+.hp-mid    { background: var(--c-accent); }
+.hp-low    { background: var(--c-accent2); }
+
+/* ─── VS ─── */
+.vs-block {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-family: var(--font-pixel); font-size: 20px;
+  color: rgba(255,255,255,0.15); letter-spacing: 4px;
+  pointer-events: none;
+}
+
+/* ─── BATTLE LOG ─── */
+.log-panel {
+  height: 110px;
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  padding: 12px 16px;
+  overflow-y: auto;
+  display: flex; flex-direction: column-reverse;
+}
+.log-panel::-webkit-scrollbar { width: 3px; }
+.log-panel::-webkit-scrollbar-thumb { background: var(--c-border); }
+
+.log-entry {
+  font-size: 13px; font-weight: 600; line-height: 1.6;
+  padding: 1px 0;
+  animation: fadeUp 0.3s ease;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.log-entry.player   { color: var(--c-blue); }
+.log-entry.enemy    { color: var(--c-accent2); }
+.log-entry.system   { color: var(--c-dim); }
+.log-entry.success  { color: var(--c-green); }
+.log-entry.fail     { color: var(--c-accent2); }
+
+/* ─── BATTLE ACTIONS ─── */
+.actions-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+
+.action-btn {
+  padding: 0; border: 1px solid var(--c-border);
+  background: var(--c-panel); color: var(--c-text);
+  cursor: pointer; font-family: var(--font-ui);
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.action-btn:hover:not(:disabled) {
+  border-color: var(--c-blue);
+  background: rgba(79,209,255,0.06);
+  transform: translateY(-2px);
+}
+.action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.action-btn-header {
+  padding: 8px 14px 4px;
+  font-family: var(--font-pixel); font-size: 7px;
+  color: var(--c-accent); letter-spacing: 2px;
+  border-bottom: 1px solid var(--c-border);
+}
+.action-btn-body { padding: 6px 14px 8px; display: flex; flex-direction: column; gap: 4px; }
+.skill-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600; padding: 3px 0;
+  cursor: pointer; transition: color 0.15s;
+}
+.skill-row:hover { color: var(--c-blue); }
+.skill-row-tags { font-size: 10px; color: var(--c-dim); }
+
+/* Items menu */
+.item-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600; padding: 3px 0;
+  cursor: pointer; transition: color 0.15s;
+}
+.item-row:hover { color: var(--c-green); }
+.item-count { font-size: 10px; color: var(--c-dim); }
+
+/* Switch menu */
+.switch-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600; padding: 3px 0;
+  cursor: pointer; transition: color 0.15s;
+}
+.switch-row:hover { color: var(--c-purple); }
+.switch-row.active-char { color: var(--c-dim); cursor: default; font-size: 11px; }
+
+/* Flee */
+.flee-block {
+  display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center; gap: 6px;
+  padding: 10px 14px;
+  font-size: 13px; font-weight: 600;
+}
+.flee-hint { font-size: 11px; color: var(--c-dim); }
+.flee-btn {
+  border: none; background: transparent;
+  color: var(--c-accent2); font-family: var(--font-ui); font-size: 15px;
+  font-weight: 700; cursor: pointer; padding: 0; letter-spacing: 1px;
+  text-transform: uppercase; transition: opacity 0.2s;
+}
+.flee-btn:hover { opacity: 0.7; }
+
+/* ─── TURN INDICATOR ─── */
+.turn-indicator {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-pixel); font-size: 7px;
+  padding: 6px 14px;
+  border: 1px solid var(--c-border);
+  background: var(--c-bg);
+  letter-spacing: 2px; white-space: nowrap;
+}
+
+/* ─── OVERLAY ─── */
+.overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.overlay-box {
+  background: var(--c-panel); border: 1px solid var(--c-border);
+  padding: 50px 60px; text-align: center;
+  display: flex; flex-direction: column; gap: 24px; align-items: center;
+}
+.overlay-title {
+  font-family: var(--font-pixel); font-size: 18px; letter-spacing: 4px;
+}
+.overlay-title.win  { color: var(--c-accent); text-shadow: 0 0 30px rgba(232,200,74,0.6); }
+.overlay-title.lose { color: var(--c-accent2); text-shadow: 0 0 30px rgba(255,79,79,0.5); }
+.overlay-msg { font-size: 16px; color: var(--c-dim); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 1: CHARACTER SELECTION
+════════════════════════════════════════════ -->
+<div id="selection-screen" class="screen active">
+  <div class="sel-left">
+    <div class="screen-title">⚔ CHARACTER SELECT</div>
+    <div class="screen-sub">Choose your fighter</div>
+    <div class="char-grid" id="char-grid"></div>
+  </div>
+
+  <div class="sel-right">
+    <div id="detail-empty" style="display:flex;flex:1;align-items:center;justify-content:center;color:var(--c-dim);font-size:13px;letter-spacing:2px;text-transform:uppercase;text-align:center;">
+      ← Chọn nhân vật<br>để xem thông tin
+    </div>
+    <div id="detail-content" style="display:none;flex-direction:column;gap:18px;flex:1;">
+      <img id="detail-img" class="detail-portrait" src="" alt="">
+      <div id="detail-name" class="detail-name"></div>
+      <div class="stat-rows" id="stat-rows"></div>
+      <div class="skills-section" id="detail-skills"></div>
+    </div>
+    <button class="btn-primary" id="btn-start" disabled onclick="startBattle()">Vào Trận →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 2: BATTLE
+════════════════════════════════════════════ -->
+<div id="battle-screen" class="screen">
+  <!-- Arena -->
+  <div class="arena" id="arena">
+    <div class="arena-bg-text">BATTLE</div>
+    <div class="turn-indicator" id="turn-indicator">LƯỢT: —</div>
+
+    <!-- Player fighter -->
+    <div class="fighter" id="fighter-player">
+      <div class="fighter-name" id="b-player-name" style="color:var(--c-blue)">PLAYER</div>
+      <img id="b-player-img" class="fighter-portrait" src="" alt="">
+      <div class="hp-block">
+        <div class="hp-label">
+          <span>HP</span>
+          <span id="b-player-hp-num" class="hp-nums">—</span>
+        </div>
+        <div class="hp-bar-outer">
+          <div class="hp-bar-inner hp-high" id="b-player-hp-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vs-block">VS</div>
+
+    <!-- Enemy fighter -->
+    <div class="fighter" id="fighter-enemy" style="align-items:flex-end">
+      <div class="fighter-name" id="b-enemy-name" style="color:var(--c-accent2);text-align:right">ENEMY</div>
+      <img id="b-enemy-img" class="fighter-portrait" src="" alt="" style="object-position:top">
+      <div class="hp-block" style="width:100%">
+        <div class="hp-label">
+          <span>HP</span>
+          <span id="b-enemy-hp-num" class="hp-nums">—</span>
+        </div>
+        <div class="hp-bar-outer">
+          <div class="hp-bar-inner hp-high" id="b-enemy-hp-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Battle Log -->
+  <div class="log-panel" id="log-panel"></div>
+
+  <!-- Action Buttons -->
+  <div class="actions-row" id="action-row">
+    <!-- ATTACK -->
+    <button class="action-btn" id="btn-attack-panel">
+      <div class="action-btn-header">⚔ TẤN CÔNG</div>
+      <div class="action-btn-body" id="skill-list"></div>
+    </button>
+
+    <!-- BAG -->
+    <button class="action-btn" id="btn-bag-panel" style="cursor:default">
+      <div class="action-btn-header">🎒 TÚI ĐỒ</div>
+      <div class="action-btn-body" id="item-list"></div>
+    </button>
+
+    <!-- SWITCH -->
+    <button class="action-btn" id="btn-switch-panel" style="cursor:default">
+      <div class="action-btn-header">🔄 ĐỔI NHÂN VẬT</div>
+      <div class="action-btn-body" id="switch-list"></div>
+    </button>
+
+    <!-- FLEE -->
+    <button class="action-btn" style="cursor:default">
+      <div class="action-btn-header">🏃 CHẠY TRỐN</div>
+      <div class="flee-block">
+        <div class="flee-hint" id="flee-hint">Tỷ lệ thoát: —</div>
+        <button class="flee-btn" onclick="attemptFlee()">→ Chạy ngay!</button>
+      </div>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     OVERLAY (Win / Lose)
+════════════════════════════════════════════ -->
+<div class="overlay" id="overlay" style="display:none">
+  <div class="overlay-box">
+    <div class="overlay-title" id="overlay-title">—</div>
+    <div class="overlay-msg" id="overlay-msg"></div>
+    <button class="btn-primary" onclick="location.reload()">↩ Chơi Lại</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+//  DATA LAYER — Centralized State
+// ════════════════════════════════════════════════════
+
+const SKILLS_DB = {
+  fireball:      { name: 'Phun Lửa',      dmgBase: 35, accuracy: 90, type: 'fire'    },
+  tackle:        { name: 'Húc Đầu',        dmgBase: 20, accuracy: 100,type: 'normal'  },
+  slash:         { name: 'Chém Sắc',       dmgBase: 40, accuracy: 80, type: 'blade'   },
+  windCut:       { name: 'Cắt Gió',        dmgBase: 25, accuracy: 95, type: 'wind'    },
+  acidSpit:      { name: 'Phun Axit',      dmgBase: 30, accuracy: 85, type: 'poison'  },
+  wingSlap:      { name: 'Đập Cánh',       dmgBase: 15, accuracy: 100,type: 'normal'  },
+  priceCheck:    { name: 'Kiểm Giá',       dmgBase: 28, accuracy: 95, type: 'normal'  },
+  bagThrow:      { name: 'Ném Túi',        dmgBase: 45, accuracy: 70, type: 'normal'  },
+  // Boss skills
+  bossSmash:     { name: 'Đại Chiến',      dmgBase: 50, accuracy: 75, type: 'dark'    },
+  darkBreath:    { name: 'Hơi Thở Bóng Tối', dmgBase: 38, accuracy: 85, type: 'dark' },
+  voidBolt:      { name: 'Tia Hư Không',   dmgBase: 42, accuracy: 80, type: 'dark'    },
+};
+
+const ITEMS_DB = {
+  potion:     { name: 'Thuốc Trị Thương', healAmt: 50,  count: 3 },
+  elixir:     { name: 'Tiên Dược',        healAmt: 120, count: 1 },
+};
+
+const CHARACTERS_DB = {
+  Lambdadelta: {
+    id: 'Lambdadelta', name: 'Lambdadelta',
+    img: 'https://th.bing.com/th/id/R.9bd4f5ecfd1a32326acb55f80cb5e2fc?rik=jKzfhqC8jVxxXw&riu=http%3a%2f%2fimg3.wikia.nocookie.net%2f__cb20131010122932%2fumineko%2fimages%2fd%2fd1%2fLam_b21_akuwarai1.png&ehk=XL1xsq%2f0%2bi8OxRxJd5b8lREnWGNyjJRaCvMaFoS7A3o%3d&risl=&pid=ImgRaw&r=0',
+    hp: 90, maxHp: 90, atk: 70, def: 55, spd: 85,
+    skills: ['fireball', 'tackle'],
+  },
+ Bernkastel: {
+    id: 'Bernkastel', name: 'Bernkastel',
+    img: 'https://tse3.mm.bing.net/th/id/OIP.zU8wGSfdCwsQAO0xnRNsmgHaGY?rs=1&pid=ImgDetMain&o=7&rm=3',
+    hp: 100, maxHp: 100, atk: 80, def: 65, spd: 70,
+    skills: ['slash', 'windCut'],
+  },
+  Beatrice: {
+    id: 'Beatrice', name: 'Beatrice',
+    img: 'https://vignette.wikia.nocookie.net/umineko/images/7/71/Bea_a11_def2.png/revision/latest?cb=20150314040950',
+    hp: 80, maxHp: 80, atk: 90, def: 45, spd: 95,
+    skills: ['acidSpit', 'wingSlap'],
+  },
+  Battler: {
+    id: 'Battler', name: 'The Battler',
+    img: 'https://tse4.mm.bing.net/th/id/OIP.yMWqMzGAWD0XhqQNwBVEcAHaIg?rs=1&pid=ImgDetMain&o=7&rm=3',
+    hp: 120, maxHp: 120, atk: 65, def: 80, spd: 55,
+    skills: ['priceCheck', 'bagThrow'],
+  },
+};
+
+const BOSS_DB = {
+  id: 'Featherine Augustus Aurora', name: 'Featherine Augustus Aurora',
+  img: 'https://tse3.mm.bing.net/th/id/OIP.oX3u9z0Sge_TsGRxY5hFmwAAAA?rs=1&pid=ImgDetMain&o=7&rm=3',
+  hp: 200, maxHp: 200, atk: 85, def: 60, spd: 65,
+  skills: ['bossSmash', 'darkBreath', 'voidBolt'],
+};
+
+// ════════════════════════════════════════════════════
+//  GAME STATE
+// ════════════════════════════════════════════════════
+const State = {
+  roster:        [],      // array of live character objects (deep copies)
+  activeIndex:   0,       // index of current active char in roster
+  boss:          null,    // live boss object
+  items:         {},      // live item inventory (deep copy)
+  playerTurn:    true,
+  battling:      false,
+  fleeAttempts:  0,
+
+  get player() { return this.roster[this.activeIndex]; },
+};
+
+// ════════════════════════════════════════════════════
+//  SELECTION SCREEN
+// ════════════════════════════════════════════════════
+let selectedIds = new Set();
+
+function buildSelectionGrid() {
+  const grid = document.getElementById('char-grid');
+  Object.values(CHARACTERS_DB).forEach(char => {
+    const card = document.createElement('div');
+    card.className = 'char-card';
+    card.dataset.id = char.id;
+    card.innerHTML = `
+      <img src="${char.img}" alt="${char.name}" onerror="this.src='https://placehold.co/150x150/1e2035/4fd1ff?text=${encodeURIComponent(char.name.slice(0,3).toUpperCase())}'">
+      <div class="char-card-name">${char.name}</div>`;
+    card.onclick = () => toggleSelect(char.id, card);
+    grid.appendChild(card);
+  });
+}
+
+function toggleSelect(id, card) {
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id);
+    card.classList.remove('selected');
+  } else {
+    selectedIds.add(id);
+    card.classList.add('selected');
+  }
+  showDetail(id);
+  document.getElementById('btn-start').disabled = selectedIds.size === 0;
+}
+
+function showDetail(id) {
+  const char = CHARACTERS_DB[id];
+  document.getElementById('detail-empty').style.display = 'none';
+  const dc = document.getElementById('detail-content');
+  dc.style.display = 'flex';
+
+  document.getElementById('detail-img').src = char.img;
+  document.getElementById('detail-img').onerror = function() {
+    this.src = `https://placehold.co/280x280/1e2035/4fd1ff?text=${encodeURIComponent(char.name.slice(0,3).toUpperCase())}`;
+  };
+  document.getElementById('detail-name').textContent = char.name;
+
+  const stats = [
+    { label: 'HP',  val: char.maxHp, max: 150, color: '#4fff9a' },
+    { label: 'ATK', val: char.atk,   max: 100, color: '#ff4f4f' },
+    { label: 'DEF', val: char.def,   max: 100, color: '#4fd1ff' },
+    { label: 'SPD', val: char.spd,   max: 100, color: '#e8c84a' },
+  ];
+  document.getElementById('stat-rows').innerHTML = stats.map(s => `
+    <div class="stat-row" style="margin-bottom:10px">
+      <span class="stat-label">${s.label}</span>
+      <div class="stat-bar-wrap">
+        <div class="stat-bar-fill" style="width:${(s.val/s.max)*100}%;background:${s.color}"></div>
+      </div>
+      <span class="stat-val">${s.val}</span>
+    </div>`).join('');
+
+  document.getElementById('detail-skills').innerHTML = `
+    <div class="skills-title">Kỹ Năng</div>` +
+    char.skills.map(sk => {
+      const skill = SKILLS_DB[sk];
+      return `<div class="skill-chip">
+        <span>${skill.name}</span>
+        <div class="skill-chip-tags">
+          <span class="tag tag-dmg">⚔${skill.dmgBase}</span>
+          <span class="tag tag-acc">◎${skill.accuracy}%</span>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  BATTLE INIT
+// ════════════════════════════════════════════════════
+function startBattle() {
+  if (selectedIds.size === 0) return;
+
+  // Deep-copy roster from selection
+  State.roster = Array.from(selectedIds).map(id => {
+    const c = CHARACTERS_DB[id];
+    return { ...c, hp: c.maxHp };
+  });
+  // Always add unselected chars so player can switch from anyone
+  Object.values(CHARACTERS_DB).forEach(c => {
+    if (!selectedIds.has(c.id)) {
+      // not in roster, skip
+    }
+  });
+  State.activeIndex = 0;
+
+  // Deep-copy boss
+  State.boss = { ...BOSS_DB, hp: BOSS_DB.maxHp };
+
+  // Deep-copy items
+  State.items = {};
+  Object.entries(ITEMS_DB).forEach(([k, v]) => { State.items[k] = { ...v }; });
+
+  State.battling = true;
+  State.fleeAttempts = 0;
+
+  // Switch screens
+  document.getElementById('selection-screen').classList.remove('active');
+  document.getElementById('battle-screen').classList.add('active');
+
+  renderBattle();
+  buildActionPanels();
+  log('Trận chiến bắt đầu!', 'system');
+
+  // Determine who goes first
+  determineFirstTurn();
+}
+
+function determineFirstTurn() {
+  State.playerTurn = State.player.spd >= State.boss.spd;
+  if (!State.playerTurn) {
+    log(`${State.boss.name} ra tay trước nhờ tốc độ cao hơn!`, 'system');
+    setActionsEnabled(false);
+    setTimeout(enemyTurn, 1200);
+  } else {
+    log(`${State.player.name} ra tay trước!`, 'system');
+    setActionsEnabled(true);
+  }
+  updateTurnIndicator();
+}
+
+// ════════════════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════════════════
+function renderBattle() {
+  const p = State.player;
+  const b = State.boss;
+
+  // Player
+  document.getElementById('b-player-name').textContent = p.name;
+  const pImg = document.getElementById('b-player-img');
+  pImg.src = p.img;
+  pImg.onerror = () => pImg.src = `https://placehold.co/220x220/111122/4fd1ff?text=${encodeURIComponent(p.name.slice(0,3).toUpperCase())}`;
+  updateHpDisplay('player', p.hp, p.maxHp);
+
+  // Enemy
+  document.getElementById('b-enemy-name').textContent = b.name;
+  const eImg = document.getElementById('b-enemy-img');
+  eImg.src = b.img;
+  updateHpDisplay('enemy', b.hp, b.maxHp);
+}
+
+function updateHpDisplay(who, hp, maxHp) {
+  const pct = Math.max(0, (hp / maxHp) * 100);
+  const bar = document.getElementById(`b-${who}-hp-bar`);
+  const num = document.getElementById(`b-${who}-hp-num`);
+  bar.style.width = pct + '%';
+  bar.className = 'hp-bar-inner ' + (pct > 60 ? 'hp-high' : pct > 25 ? 'hp-mid' : 'hp-low');
+  num.textContent = `${Math.max(0,hp)} / ${maxHp}`;
+}
+
+function updateTurnIndicator() {
+  const ind = document.getElementById('turn-indicator');
+  ind.textContent = State.playerTurn
+    ? `LƯỢT: ${State.player.name.toUpperCase()}`
+    : `LƯỢT: ${State.boss.name}`;
+  ind.style.color = State.playerTurn ? 'var(--c-blue)' : 'var(--c-accent2)';
+  ind.style.borderColor = State.playerTurn ? 'var(--c-blue)' : 'var(--c-accent2)';
+}
+
+function buildActionPanels() {
+  buildSkillList();
+  buildItemList();
+  buildSwitchList();
+  updateFleeHint();
+}
+
+function buildSkillList() {
+  const p = State.player;
+  const el = document.getElementById('skill-list');
+  el.innerHTML = p.skills.map(sk => {
+    const skill = SKILLS_DB[sk];
+    return `<div class="skill-row" onclick="useSkill('${sk}')">
+      <span>${skill.name}</span>
+      <span class="skill-row-tags">⚔${skill.dmgBase} ◎${skill.accuracy}%</span>
+    </div>`;
+  }).join('');
+}
+
+function buildItemList() {
+  const el = document.getElementById('item-list');
+  el.innerHTML = Object.entries(State.items).map(([key, item]) => `
+    <div class="item-row" onclick="useItem('${key}')">
+      <span>${item.name}</span>
+      <span class="item-count">x${item.count} (+${item.healAmt}HP)</span>
+    </div>`).join('');
+  if (Object.values(State.items).every(i => i.count <= 0)) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--c-dim);padding:4px 0">Hết đồ rồi...</div>';
+  }
+}
+
+function buildSwitchList() {
+  const el = document.getElementById('switch-list');
+  el.innerHTML = State.roster.map((c, i) => {
+    const active = i === State.activeIndex;
+    const dead = c.hp <= 0;
+    return `<div class="switch-row ${active ? 'active-char' : ''}" onclick="${active || dead ? '' : `switchChar(${i})`}" style="${dead ? 'color:var(--c-accent2);cursor:default' : ''}">
+      <span>${c.name} ${active ? '[Đang dùng]' : dead ? '[Đã ngất]' : ''}</span>
+      <span class="item-count">${c.hp}/${c.maxHp}HP</span>
+    </div>`;
+  }).join('');
+}
+
+function updateFleeHint() {
+  const p = State.player;
+  const b = State.boss;
+  const chance = Math.min(95, Math.round(50 + (p.spd - b.spd) * 0.8));
+  document.getElementById('flee-hint').textContent = `Tỷ lệ thoát: ~${chance}%`;
+}
+
+// ════════════════════════════════════════════════════
+//  BATTLE LOG
+// ════════════════════════════════════════════════════
+function log(msg, type = 'system') {
+  const panel = document.getElementById('log-panel');
+  const el = document.createElement('div');
+  el.className = `log-entry ${type}`;
+  el.textContent = msg;
+  panel.prepend(el);
+}
+
+// ════════════════════════════════════════════════════
+//  COMBAT MATH
+// ════════════════════════════════════════════════════
+function calcDamage(atk, def, baseDmg) {
+  const raw = (atk / def) * baseDmg;
+  const variance = 0.85 + Math.random() * 0.3; // ±15%
+  return Math.max(1, Math.round(raw * variance));
+}
+
+function rollAccuracy(accuracy) {
+  return Math.random() * 100 < accuracy;
+}
+
+// ════════════════════════════════════════════════════
+//  PLAYER ACTIONS
+// ════════════════════════════════════════════════════
+function useSkill(skillId) {
+  if (!State.playerTurn || !State.battling) return;
+  const skill = SKILLS_DB[skillId];
+  const p = State.player;
+  const b = State.boss;
+
+  if (rollAccuracy(skill.accuracy)) {
+    const dmg = calcDamage(p.atk, b.def, skill.dmgBase);
+    b.hp = Math.max(0, b.hp - dmg);
+    log(`${p.name} dùng ${skill.name}, gây ${dmg} sát thương!`, 'player');
+    updateHpDisplay('enemy', b.hp, b.maxHp);
+    triggerShake('fighter-enemy');
+    if (checkWin()) return;
+  } else {
+    log(`${p.name} dùng ${skill.name} nhưng trượt!`, 'fail');
+  }
+  endPlayerTurn();
+}
+
+function useItem(itemKey) {
+  if (!State.playerTurn || !State.battling) return;
+  const item = State.items[itemKey];
+  if (!item || item.count <= 0) { log('Hết vật phẩm này rồi!', 'system'); return; }
+  const p = State.player;
+  const healed = Math.min(item.healAmt, p.maxHp - p.hp);
+  p.hp += healed;
+  item.count--;
+  log(`Dùng ${item.name}, hồi ${healed} HP cho ${p.name}!`, 'success');
+  updateHpDisplay('player', p.hp, p.maxHp);
+  buildItemList();
+  endPlayerTurn();
+}
+
+function switchChar(index) {
+  if (!State.playerTurn || !State.battling) return;
+  if (index === State.activeIndex) return;
+  if (State.roster[index].hp <= 0) { log('Nhân vật này đã ngất!', 'system'); return; }
+  const old = State.player.name;
+  State.activeIndex = index;
+  renderBattle();
+  buildActionPanels();
+  log(`Đổi sang ${State.player.name}!`, 'success');
+  endPlayerTurn();
+}
+
+function attemptFlee() {
+  if (!State.playerTurn || !State.battling) return;
+  const p = State.player;
+  const b = State.boss;
+  State.fleeAttempts++;
+  const chance = Math.min(95, 50 + (p.spd - b.spd) * 0.8);
+  if (Math.random() * 100 < chance) {
+    log('Đã bỏ chạy thành công! Thật nhục nhã...', 'system');
+    showOverlay('lose', 'Bạn Đã Bỏ Chạy', 'Không chiến sĩ thực thụ nào bỏ chạy...');
+  } else {
+    log(`Cố thoát nhưng thất bại! (lần ${State.fleeAttempts})`, 'fail');
+    endPlayerTurn();
+  }
+}
+
+function endPlayerTurn() {
+  State.playerTurn = false;
+  updateTurnIndicator();
+  setActionsEnabled(false);
+  setTimeout(enemyTurn, 1000);
+}
+
+// ════════════════════════════════════════════════════
+//  ENEMY TURN (AI)
+// ════════════════════════════════════════════════════
+function enemyTurn() {
+  if (!State.battling) return;
+  const b = State.boss;
+  const p = State.player;
+
+  // Pick random skill
+  const skillId = b.skills[Math.floor(Math.random() * b.skills.length)];
+  const skill = SKILLS_DB[skillId];
+
+  if (rollAccuracy(skill.accuracy)) {
+    const dmg = calcDamage(b.atk, p.def, skill.dmgBase);
+    p.hp = Math.max(0, p.hp - dmg);
+    log(`${b.name} dùng ${skill.name}, gây ${dmg} sát thương cho ${p.name}!`, 'enemy');
+    updateHpDisplay('player', p.hp, p.maxHp);
+    triggerShake('fighter-player');
+    if (checkLose()) return;
+  } else {
+    log(`${b.name} dùng ${skill.name} nhưng trượt!`, 'fail');
+  }
+
+  State.playerTurn = true;
+  updateTurnIndicator();
+  buildSwitchList();
+  setActionsEnabled(true);
+}
+
+// ════════════════════════════════════════════════════
+//  WIN / LOSE CHECKS
+// ════════════════════════════════════════════════════
+function checkWin() {
+  if (State.boss.hp <= 0) {
+    State.battling = false;
+    setActionsEnabled(false);
+    setTimeout(() => showOverlay('win', '🏆 CHIẾN THẮNG!', `${State.player.name} đã hạ gục ${State.boss.name}!`), 500);
+    return true;
+  }
+  return false;
+}
+
+function checkLose() {
+  // Check if current char is down
+  if (State.player.hp <= 0) {
+    log(`${State.player.name} đã ngất!`, 'enemy');
+    // Find next alive char
+    const next = State.roster.findIndex((c, i) => i !== State.activeIndex && c.hp > 0);
+    if (next !== -1) {
+      State.activeIndex = next;
+      renderBattle();
+      buildActionPanels();
+      log(`${State.player.name} lên thay!`, 'system');
+      State.playerTurn = true;
+      updateTurnIndicator();
+      setActionsEnabled(true);
+      return false;
+    } else {
+      // All down
+      State.battling = false;
+      setActionsEnabled(false);
+      setTimeout(() => showOverlay('lose', '💀 THẤT BẠI', 'Toàn đội đã ngã xuống...'), 500);
+      return true;
+    }
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════════
+//  UI HELPERS
+// ════════════════════════════════════════════════════
+function setActionsEnabled(enabled) {
+  document.querySelectorAll('.action-btn').forEach(btn => btn.disabled = !enabled);
+  document.querySelector('.flee-btn').disabled = !enabled;
+}
+
+function triggerShake(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('shake');
+  void el.offsetWidth; // reflow to restart animation
+  el.classList.add('shake');
+}
+
+function showOverlay(type, title, msg) {
+  const ov = document.getElementById('overlay');
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-title').className = `overlay-title ${type}`;
+  document.getElementById('overlay-msg').textContent = msg;
+  ov.style.display = 'flex';
+}
+
+// ════════════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════════════
+buildSelectionGrid();
+</script>
+</body>
+</html>

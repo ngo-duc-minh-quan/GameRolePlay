@@ -382,6 +382,15 @@
         </div>
     </div>
 
+    <!-- POTION MODAL (COMBAT) -->
+    <div class="modal" id="potion-modal">
+        <div class="modal-content" style="border-color: #ff44aa; max-width: 450px;">
+            <h2 style="color: #ff44aa; text-align: center;">🧪 CHỌN THUỐC HỒI PHỤC</h2>
+            <div id="potion-list"></div>
+            <div style="text-align: center;"><button class="btn-start" style="background:#ff44aa; color:black;" onclick="closeModal('potion-modal')">ĐÓNG</button></div>
+        </div>
+    </div>
+
     <!-- ARC SELECTION MODAL -->
     <div class="modal" id="arc-select-modal">
         <div class="modal-content">
@@ -484,18 +493,18 @@
 
         // ==================== KỸ NĂNG ANIME ====================
         const ANIME_SKILLS = {
-            "s1": { name: "Water Breathing 10th Form", origin: "Tanjiro (Kimetsu)", desc: "Gây sát thương bằng 2.2x ATK", mpCost: 15, emoji: "🌊", effect: (p, e) => { return p.stats.atk * 2.2; }, fx: "🌊" },
-            "s2": { name: "Normal Punch", origin: "Saitama (OPM)", desc: "Cú đấm thường: 1.8x ATK, 0 MP", mpCost: 0, emoji: "👊", effect: (p, e) => { return p.stats.atk * 1.8; }, fx: "💥" },
-            "s3": { name: "Rasengan", origin: "Naruto", desc: "Sát thương: 2.5x ATK + 1.5x STR", mpCost: 25, emoji: "🌀", effect: (p, e) => { return (p.stats.atk * 2.5) + (p.stats.str * 1.5); }, fx: "🌀" },
-            "s4": { name: "Shadow Step", origin: "Sung Jin-Woo (Solo)", desc: "Né đòn và phản công 2x ATK", mpCost: 20, emoji: "👤", effect: (p, e) => { p.buffs.dodgeNext = true; return p.stats.atk * 2; }, fx: "🌑" },
-            "s5": { name: "Kamehameha", origin: "Son Goku (DB)", desc: "Sát thương chưởng: 3x INT + 1x ATK", mpCost: 40, emoji: "☄️", effect: (p, e) => { return (p.stats.int * 3) + p.stats.atk; }, fx: "🔵" },
-            "s6": { name: "Gear Second", origin: "Luffy (One Piece)", desc: "Tăng mạnh tốc độ, x2 ATK trong 3 lượt", mpCost: 35, emoji: "💨", effect: (p, e) => { p.buffs.gear2 = 3; return 0; }, fx: "♨️" },
-            "s7": { name: "Getsuga Tensho", origin: "Ichigo (Bleach)", desc: "Chém sóng năng lượng: 3x ATK", mpCost: 30, emoji: "🗡️", effect: (p, e) => { return p.stats.atk * 3; }, fx: "🌙" },
-            "s8": { name: "Predator", origin: "Rimuru (Slime)", desc: "Hút 20% máu tối đa của quái vật", mpCost: 50, emoji: "💧", effect: (p, e) => { let dmg = e.maxHp * 0.2; p.currentHp = Math.min(p.stats.hp, p.currentHp + dmg); return dmg; }, fx: "🦠" },
+            "s1": { name: "Water Breathing 10th Form", origin: "Tanjiro (Kimetsu)", desc: "Gây sát thương bằng 3.5x ATK", mpCost: 15, emoji: "🌊", effect: (p, e) => { return p.stats.atk * 3.5; }, fx: "🌊" },
+            "s2": { name: "Normal Punch", origin: "Saitama (OPM)", desc: "Cú đấm thường: 2.5x ATK, 0 MP", mpCost: 0, emoji: "👊", effect: (p, e) => { return p.stats.atk * 2.5; }, fx: "💥" },
+            "s3": { name: "Rasengan", origin: "Naruto", desc: "Sát thương: 4x ATK + 3x STR", mpCost: 25, emoji: "🌀", effect: (p, e) => { return (p.stats.atk * 4) + (p.stats.str * 3); }, fx: "🌀" },
+            "s4": { name: "Shadow Step", origin: "Sung Jin-Woo (Solo)", desc: "Né đòn và phản công 3x ATK", mpCost: 20, emoji: "👤", effect: (p, e) => { p.buffs.dodgeNext = true; return p.stats.atk * 3; }, fx: "🌑" },
+            "s5": { name: "Kamehameha", origin: "Son Goku (DB)", desc: "Sát thương chưởng: 5x INT + 2x ATK", mpCost: 40, emoji: "☄️", effect: (p, e) => { return (p.stats.int * 5) + (p.stats.atk * 2); }, fx: "🔵" },
+            "s6": { name: "Gear Second", origin: "Luffy (One Piece)", desc: "Tăng mạnh tốc độ, x3 ATK trong 3 lượt", mpCost: 35, emoji: "💨", effect: (p, e) => { p.buffs.gear2 = 3; return 0; }, fx: "♨️" },
+            "s7": { name: "Getsuga Tensho", origin: "Ichigo (Bleach)", desc: "Chém sóng năng lượng: 5x ATK", mpCost: 30, emoji: "🗡️", effect: (p, e) => { return p.stats.atk * 5; }, fx: "🌙" },
+            "s8": { name: "Predator", origin: "Rimuru (Slime)", desc: "Hút 30% máu tối đa + 2x INT", mpCost: 50, emoji: "💧", effect: (p, e) => { let dmg = (e.maxHp * 0.3) + (p.stats.int * 2); p.currentHp = Math.min(p.stats.hp, p.currentHp + dmg); return dmg; }, fx: "🦠" },
             "s9": { name: "Infinity", origin: "Gojo (JJK)", desc: "Vô hạn: Miễn nhiễm mọi sát thương lượt tới", mpCost: 60, emoji: "🤞", effect: (p, e) => { p.buffs.infinity = 1; return 0; }, fx: "🌌" },
-            "s10": { name: "Grasp Heart", origin: "Ainz (Overlord)", desc: "Tỉ lệ 30% kết liễu ngay lập tức (không tác dụng Boss)", mpCost: 80, emoji: "🖤", effect: (p, e) => { if(!e.isBoss && Math.random() < 0.3) return e.hp; return p.stats.int * 2; }, fx: "💀" },
-            "s11": { name: "Thunderclap Flash", origin: "Zenitsu (Kimetsu)", desc: "Chớp nhoáng: 2.8x ATK", mpCost: 30, emoji: "⚡", effect: (p, e) => { return p.stats.atk * 2.8; }, fx: "⚡" },
-            "s12": { name: "Serious Punch", origin: "Saitama (OPM)", desc: "Đấm nghiêm túc: 8x ATK. Cực hiếm!", mpCost: 100, emoji: "☄️👊", effect: (p, e) => { return p.stats.atk * 8; }, fx: "💥💥" }
+            "s10": { name: "Grasp Heart", origin: "Ainz (Overlord)", desc: "Tỉ lệ 30% kết liễu ngay lập tức (Nếu xịt: 5x INT)", mpCost: 80, emoji: "🖤", effect: (p, e) => { if(!e.isBoss && Math.random() < 0.3) return e.hp; return p.stats.int * 5; }, fx: "💀" },
+            "s11": { name: "Thunderclap Flash", origin: "Zenitsu (Kimetsu)", desc: "Chớp nhoáng: 4.5x ATK", mpCost: 30, emoji: "⚡", effect: (p, e) => { return p.stats.atk * 4.5; }, fx: "⚡" },
+            "s12": { name: "Serious Punch", origin: "Saitama (OPM)", desc: "Đấm nghiêm túc: 15x ATK. Cực hiếm!", mpCost: 100, emoji: "☄️👊", effect: (p, e) => { return p.stats.atk * 15; }, fx: "💥💥" }
         };
 
         const statKeys = ['str', 'dex', 'int', 'hp', 'mp', 'sp', 'atk', 'def', 'speed', 'critR', 'critD', 'wis'];
@@ -946,7 +955,7 @@
             triggerAnim('player', 'anim-attack-right');
             setTimeout(() => {
                 let dmg = p.stats.atk + Math.floor(p.stats.str * 1.5); // Sửa lỗi dame không tăng theo chỉ số
-                if(p.buffs.gear2) dmg *= 2; // Gear 2 buff
+                if(p.buffs.gear2) dmg *= 3; // Gear 2 buff
                 
                 let isCrit = Math.random() < (p.stats.critR / 100);
                 if(isCrit) dmg = Math.floor(dmg * (1 + p.stats.critD / 100));
@@ -1102,6 +1111,18 @@
                     if(e.drops) { e.drops.forEach(d => { gameState.player.inventory.push(d); addLog("🎁", `Nhặt được: ${d}`, 'loot'); }); }
                 } else {
                     gameState.player.arcProgress.currentWave++;
+                    const r = Math.random();
+                    if(r < 0.1) {
+                        gameState.player.inventory.push("hp_small");
+                        addLog("🎁", `Nhặt được: Bình HP Nhỏ`, 'loot');
+                    } else if (r < 0.2) {
+                        gameState.player.inventory.push("mp_small");
+                        addLog("🎁", `Nhặt được: Bình MP Nhỏ`, 'loot');
+                    } else if (r < 0.25 && gameState.selectedArc && gameState.selectedArc.rewards.item) {
+                        const arcEq = gameState.selectedArc.rewards.item;
+                        gameState.player.inventory.push(arcEq);
+                        addLog("🎁", `Tuyệt vời! Nhặt được trang bị hiếm: ${arcEq}`, 'loot');
+                    }
                 }
             }
             
@@ -1191,7 +1212,7 @@
                     <button class="action-btn" style="background:#2a1a1a; border-color:#ff4444;" onclick="attack()" ${disabled}>⚔️ TẤN CÔNG</button>
                     <button class="action-btn" style="background:#1a1a2a; border-color:#4488ff;" onclick="defend()" ${disabled}>🛡️ PHÒNG THỦ</button>
                     <button class="action-btn" style="background:#002a2a; border-color:#00ffd2;" onclick="openSkillsModal()" ${disabled}>🌀 KỸ NĂNG</button>
-                    <button class="action-btn" style="background:#2a0a2a; border-color:#ff44aa;" onclick="usePotion()" ${disabled}>🧪 DÙNG THUỐC</button>
+                    <button class="action-btn" style="background:#2a0a2a; border-color:#ff44aa;" onclick="openPotionModal()" ${disabled}>🧪 DÙNG THUỐC</button>
                 `;
             } else {
                 let arcBtn = '';
@@ -1242,18 +1263,18 @@
         ];
 
         const EQUIPMENT_DB = {
-            "Kiếm Tập Sự": { type: "weapon", name: "Kiếm Tập Sự", stats: { atk: 15, str: 5 }, emoji: "🗡️", desc: "Tăng 15 ATK, 5 STR" },
-            "Giáp Lửa": { type: "armor", name: "Giáp Lửa", stats: { def: 20, hp: 100 }, emoji: "🔥", desc: "Tăng 20 DEF, 100 HP" },
-            "Khiên Băng": { type: "armor", name: "Khiên Băng", stats: { def: 40, hp: 200 }, emoji: "❄️", desc: "Tăng 40 DEF, 200 HP" },
-            "Búa Sấm": { type: "weapon", name: "Búa Sấm", stats: { atk: 60, critD: 20 }, emoji: "⚡", desc: "Tăng 60 ATK, 20% Sát thương CM" },
-            "Cung Gió": { type: "weapon", name: "Cung Gió", stats: { atk: 80, speed: 30, dex: 20 }, emoji: "🌪️", desc: "Tăng 80 ATK, 30 Tốc độ, 20 DEX" },
-            "Khiên Titan": { type: "armor", name: "Khiên Titan", stats: { def: 100, hp: 800 }, emoji: "🛡️", desc: "Tăng 100 DEF, 800 HP" },
-            "Kiếm Hủy Diệt": { type: "weapon", name: "Kiếm Hủy Diệt", stats: { atk: 250, str: 100, critR: 15 }, emoji: "⚔️", desc: "Tăng 250 ATK, 100 STR, 15% Tỉ lệ CM" }
+            "Kiếm Tập Sự": { type: "weapon", name: "Kiếm Tập Sự", stats: { atk: 15, str: 5 }, emoji: "🗡️", desc: "Tăng 15 ATK, 5 STR", price: 300, reqArc: 0 },
+            "Giáp Lửa": { type: "armor", name: "Giáp Lửa", stats: { def: 20, hp: 100 }, emoji: "🔥", desc: "Tăng 20 DEF, 100 HP", price: 800, reqArc: 1 },
+            "Khiên Băng": { type: "armor", name: "Khiên Băng", stats: { def: 40, hp: 200 }, emoji: "❄️", desc: "Tăng 40 DEF, 200 HP", price: 1500, reqArc: 2 },
+            "Búa Sấm": { type: "weapon", name: "Búa Sấm", stats: { atk: 60, critD: 20 }, emoji: "⚡", desc: "Tăng 60 ATK, 20% Sát thương CM", price: 2500, reqArc: 3 },
+            "Cung Gió": { type: "weapon", name: "Cung Gió", stats: { atk: 80, speed: 30, dex: 20 }, emoji: "🌪️", desc: "Tăng 80 ATK, 30 Tốc độ, 20 DEX", price: 4000, reqArc: 4 },
+            "Khiên Titan": { type: "armor", name: "Khiên Titan", stats: { def: 100, hp: 800 }, emoji: "🛡️", desc: "Tăng 100 DEF, 800 HP", price: 6000, reqArc: 5 },
+            "Kiếm Hủy Diệt": { type: "weapon", name: "Kiếm Hủy Diệt", stats: { atk: 250, str: 100, critR: 15 }, emoji: "⚔️", desc: "Tăng 250 ATK, 100 STR, 15% Tỉ lệ CM", price: 10000, reqArc: 6 }
         };
 
         function openShopModal() {
             getEl('shop-gold').innerText = gameState.player.gold;
-            getEl('shop-items').innerHTML = SHOP_ITEMS.map(item => `
+            let html = SHOP_ITEMS.map(item => `
                 <div style="display:flex; justify-content:space-between; align-items:center; background:#222; padding:10px; margin-bottom:5px; border-radius:5px; border-left:4px solid #ff44aa;">
                     <div>
                         <strong style="color:white;">${item.emoji} ${item.name}</strong><br>
@@ -1265,15 +1286,38 @@
                     </div>
                 </div>
             `).join('');
+
+            const arcCount = gameState.player.completedArcs.length;
+            for(let id in EQUIPMENT_DB) {
+                const eq = EQUIPMENT_DB[id];
+                if(arcCount >= (eq.reqArc || 0)) {
+                    html += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#222; padding:10px; margin-bottom:5px; border-radius:5px; border-left:4px solid #ffaa00;">
+                        <div>
+                            <strong style="color:white;">${eq.emoji} ${eq.name}</strong><br>
+                            <small style="color:#aaa;">${eq.desc}</small>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="color:gold; font-weight:bold;">💰 ${eq.price}</span>
+                            <button class="action-btn" style="background:#ffaa00; color:black; min-width:60px;" onclick="buyItem('${id}')" ${gameState.player.gold < eq.price ? 'disabled':''}>MUA</button>
+                        </div>
+                    </div>`;
+                }
+            }
+            getEl('shop-items').innerHTML = html;
             openModal('shop-modal');
         }
 
         function buyItem(id) {
             const item = SHOP_ITEMS.find(i => i.id === id);
-            if(gameState.player.gold >= item.price) {
-                gameState.player.gold -= item.price;
+            const eq = EQUIPMENT_DB[id];
+            const price = item ? item.price : (eq ? eq.price : 0);
+            const name = item ? item.name : (eq ? eq.name : id);
+            
+            if(gameState.player.gold >= price) {
+                gameState.player.gold -= price;
                 gameState.player.inventory.push(id);
-                addLog("🏪", `Đã mua ${item.name} (-${item.price} Gold)`, 'shop');
+                addLog("🏪", `Đã mua ${name} (-${price} Gold)`, 'shop');
                 openShopModal();
                 updateGameUI();
             }
@@ -1367,25 +1411,43 @@
             }
         }
 
-        function usePotion() {
+        function openPotionModal() {
             if(!gameState.inCombat || gameState.actionLocked) return;
-            const p = gameState.player;
-            const hasHp = p.inventory.find(i => i.startsWith('hp_'));
-            const hasMp = p.inventory.find(i => i.startsWith('mp_'));
+            const list = getEl('potion-list');
+            const inv = gameState.player.inventory;
+            const countMap = {};
+            inv.forEach(id => { if(id.startsWith('hp_') || id.startsWith('mp_')) countMap[id] = (countMap[id] || 0) + 1; });
             
-            let usedId = null;
-            if(p.currentHp < p.stats.hp * 0.5 && hasHp) usedId = hasHp;
-            else if(hasMp) usedId = hasMp;
-            else if(hasHp) usedId = hasHp;
-            
-            if(!usedId) { addLog("⚠️", "Không có thuốc trong túi đồ!", 'system'); return; }
-            
+            let html = '';
+            for(let id in countMap) {
+                const item = SHOP_ITEMS.find(i => i.id === id);
+                if(item) {
+                    html += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#222; padding:10px; margin-bottom:5px; border-radius:5px; border-left:4px solid #ff44aa;">
+                        <div>
+                            <strong style="color:white;">${item.emoji} ${item.name} (x${countMap[id]})</strong><br>
+                            <small style="color:#aaa;">Hồi ${item.val} ${item.type.toUpperCase()}</small>
+                        </div>
+                        <button class="action-btn" style="background:#ff44aa; color:black; min-width:80px;" onclick="usePotionFromModal('${id}')">DÙNG</button>
+                    </div>`;
+                }
+            }
+            list.innerHTML = html || '<p style="text-align:center; color:#aaa;">Không có thuốc trong túi đồ.</p>';
+            openModal('potion-modal');
+        }
+
+        function usePotionFromModal(id) {
+            closeModal('potion-modal');
+            if(!gameState.inCombat || gameState.actionLocked) return;
             gameState.actionLocked = true;
             updateActionBar();
-            const idx = p.inventory.indexOf(usedId);
-            p.inventory.splice(idx, 1);
-            applyPotion(usedId);
-            setTimeout(enemyTurn, 500);
+            
+            const idx = gameState.player.inventory.indexOf(id);
+            if(idx > -1) {
+                gameState.player.inventory.splice(idx, 1);
+                applyPotion(id);
+                setTimeout(enemyTurn, 500);
+            }
         }
 
         function applyPotion(id) {

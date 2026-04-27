@@ -12,8 +12,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Show files
-        run: ls -la
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-      - name: Run basic test
-        run: echo "CI/CD is working 🚀"
+      - name: Install Cypress
+        run: npm install cypress
+
+      - name: Run Cypress test
+        run: npx cypress run

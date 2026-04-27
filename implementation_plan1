@@ -1,0 +1,51 @@
+# Goal
+
+Refactor the monolithic `Game.html` (1500+ lines) into multiple modular files. This will make the codebase easier to read, maintain, and debug. 
+
+## User Review Required
+
+Please review the proposed file structure below. Currently, all HTML, CSS, and JS logic (data, combat, UI, save/load) reside in one file. Splitting them requires creating a `css/` and `js/` folder structure.
+
+## Proposed Changes
+
+We will split `Game.html` into the following structure:
+
+### 1. `index.html`
+- Contains only the HTML structure (Screens, Modals, Containers).
+- Links to `css/styles.css`.
+- Includes multiple `<script>` tags in the correct order to load game logic.
+
+### 2. `css/styles.css`
+- Contains all the CSS styling (Variables, Modals, Animations, Layouts).
+
+### 3. `js/data.js`
+- Contains all constant configurations and global variables.
+- `ARCS_CONFIG`, `FARMING_ZONES`, `ANIME_SKILLS`, `SHOP_ITEMS`, `EQUIPMENT_DB`, `statKeys`.
+- Defines global variables like `gameState`, `selectedChar`, `creationStats`, `creationPoints`.
+
+### 4. `js/ui.js`
+- Core UI interaction and DOM manipulation.
+- `getEl`, `showScreen`, `openModal`, `closeModal`, `customAlert`, `customConfirm`, `addLog`, `updateGameUI`, `updateActionBar`.
+
+### 5. `js/character.js`
+- Character creation and selection logic.
+- `renderSelectionScreen`, `selectChar`, `selectSavedChar`, `continueGame`, `openCreationScreen`, `previewAvatar`, `updateCreationUI`, `finishCreation`.
+
+### 6. `js/combat.js`
+- All combat-related animations and logic.
+- `attack`, `defend`, `useSkill`, `enemyTurn`, `enemyDefeated`, `playerDefeated`, `triggerAnim`, `showFloatingDmg`, `showSkillFx`.
+
+### 7. `js/inventory.js`
+- Inventory, Shop, and Equipment management.
+- `openShopModal`, `buyItem`, `openInventoryModal`, `equipItem`, `unequipItem`, `openPotionModal`, `applyPotion`.
+
+### 8. `js/game.js`
+- Main game loop, progression, and save/load logic.
+- `startStory`, `enterGameWorld`, `checkLevelUp`, `upgradeStat`, `startFarming`, `startNextWave`, `spawnBoss`, `saveGame`, `loadGame`.
+
+## Verification Plan
+
+1. Create the directories (`css` and `js`).
+2. Move the corresponding code into each file.
+3. Update `index.html` to reference these new files.
+4. Verify that the game still runs correctly by checking character creation, combat, inventory, and saving/loading functionality.

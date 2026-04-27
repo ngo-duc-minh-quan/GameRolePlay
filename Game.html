@@ -270,7 +270,10 @@
             <h2 id="display-name" style="color: var(--accent); margin: 0; font-size: 24px;">NAME</h2>
             <img id="display-img" class="detail-img" src="" alt="Character">
             <div class="stats-grid" id="stats-area"></div>
-            <button class="btn-start" onclick="startStory()">BẮT ĐẦU CHƠI</button>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                <button id="btn-start-new" class="btn-start" style="margin-top:0;" onclick="startStory(true)">BẮT ĐẦU CHƠI</button>
+                <button id="btn-continue" class="btn-start" style="margin-top:0; background:#4488ff; display:none;" onclick="continueGame()">TIẾP TỤC CHƠI</button>
+            </div>
         </div>
     </div>
 
@@ -417,6 +420,16 @@
             <div style="text-align: center;"><button class="btn-start" style="background:#00ffd2; color:black;" onclick="closeModal('skills-modal')">ĐÓNG</button></div>
         </div>
     </div>
+
+    <!-- CUSTOM DIALOG MODAL -->
+    <div class="modal" id="custom-dialog-modal" style="z-index: 2000;">
+        <div class="modal-content" style="border-color: var(--accent); max-width: 400px; text-align: center;">
+            <h2 id="custom-dialog-title" style="color: var(--accent); margin-bottom: 15px;">THÔNG BÁO</h2>
+            <p id="custom-dialog-msg" style="color: white; margin-bottom: 25px; line-height: 1.5; font-size: 16px;"></p>
+            <div style="display: flex; justify-content: center; gap: 15px;" id="custom-dialog-btns">
+            </div>
+        </div>
+    </div>
     <script>
         // ==================== CÂN BẰNG STATS & ARCS ====================
         const ARCS_CONFIG = {
@@ -486,22 +499,59 @@
         };
 
         const statKeys = ['str', 'dex', 'int', 'hp', 'mp', 'sp', 'atk', 'def', 'speed', 'critR', 'critD', 'wis'];
-        let gameState = {
-            player: {
-                name: "", avatar: "", level: 1, exp: 0, expToLevel: 100, ap: 0,
-                stats: {str:10, dex:10, int:10, hp:50, mp:20, sp:20, atk:10, def:5, speed:10, critR:5, critD:50, wis:5},
-                currentHp: 0, currentMp: 0, currentSp: 0, gold: 500, inventory: [],
-                equipment: { weapon: null, armor: null, accessory: null },
-                learnedSkills: [], buffs: {},
-                completedArcs: [], currentArc: null, arcProgress: { currentWave: 0, totalWaves: 10, bossDefeated: false }
-            },
-            inCombat: false, currentEnemy: null, selectedArc: null
-        };
+        
+        function getInitialGameState() {
+            return {
+                player: {
+                    name: "", avatar: "", level: 1, exp: 0, expToLevel: 100, ap: 0,
+                    stats: {str:10, dex:10, int:10, hp:50, mp:20, sp:20, atk:10, def:5, speed:10, critR:5, critD:50, wis:5},
+                    currentHp: 0, currentMp: 0, currentSp: 0, gold: 500, inventory: [],
+                    equipment: { weapon: null, armor: null, accessory: null },
+                    learnedSkills: [], buffs: {},
+                    completedArcs: [], currentArc: null, arcProgress: { currentWave: 0, totalWaves: 10, bossDefeated: false }
+                },
+                inCombat: false, currentEnemy: null, selectedArc: null, actionLocked: false
+            };
+        }
+        
+        let gameState = getInitialGameState();
         
         let creationStats = {};
         let creationPoints = 70;
         // ==================== UI HELPERS ====================
         function getEl(id) { return document.getElementById(id); }
+        function customAlert(msg, title = "THÔNG BÁO") {
+            return new Promise((resolve) => {
+                const modal = getEl('custom-dialog-modal');
+                getEl('custom-dialog-title').innerText = title;
+                getEl('custom-dialog-title').style.color = 'var(--accent)';
+                modal.querySelector('.modal-content').style.borderColor = 'var(--accent)';
+                getEl('custom-dialog-msg').innerText = msg;
+                getEl('custom-dialog-btns').innerHTML = `<button class="btn-start" style="margin-top:0;" onclick="closeCustomDialog(); window.resolveCustomAlert()">ĐÓNG</button>`;
+                window.resolveCustomAlert = resolve;
+                modal.style.display = 'flex';
+            });
+        }
+
+        function customConfirm(msg, title = "XÁC NHẬN") {
+            return new Promise((resolve) => {
+                const modal = getEl('custom-dialog-modal');
+                getEl('custom-dialog-title').innerText = title;
+                getEl('custom-dialog-title').style.color = '#ffcc00';
+                modal.querySelector('.modal-content').style.borderColor = '#ffcc00';
+                getEl('custom-dialog-msg').innerText = msg;
+                getEl('custom-dialog-btns').innerHTML = `
+                    <button class="btn-start" style="margin-top:0; background:#ff3333;" onclick="closeCustomDialog(); window.resolveCustomConfirm(true)">ĐỒNG Ý</button>
+                    <button class="btn-start" style="margin-top:0; background:#333;" onclick="closeCustomDialog(); window.resolveCustomConfirm(false)">HỦY</button>
+                `;
+                window.resolveCustomConfirm = resolve;
+                modal.style.display = 'flex';
+            });
+        }
+
+        function closeCustomDialog() {
+            getEl('custom-dialog-modal').style.display = 'none';
+        }
         function showScreen(id) {
             ['selection-screen', 'creation-screen', 'story-screen', 'game-world'].forEach(s => getEl(s).style.display = 'none');
             getEl(id).style.display = 'flex';
@@ -511,6 +561,52 @@
 
         // ==================== SELECTION & CREATION ====================
         let selectedChar = null;
+
+        function renderSelectionScreen() {
+            let saves = JSON.parse(localStorage.getItem('mmorpg_arcs_v2_saves') || '{}');
+            const oldSave = localStorage.getItem('mmorpg_arcs_v2_save');
+            if (oldSave && Object.keys(saves).length === 0) {
+                try {
+                    const oldData = JSON.parse(oldSave);
+                    if (oldData.player && oldData.player.name) {
+                        saves[oldData.player.name] = oldData;
+                        localStorage.setItem('mmorpg_arcs_v2_saves', JSON.stringify(saves));
+                    }
+                } catch(e) {}
+            }
+            
+            const grid = document.querySelector('.char-grid');
+            
+            let html = `
+                <div class="char-item" onclick="selectChar('Lemmings', 'images/Lemmings.webp', {str:98, dex:92, int:55, hp:88, mp:0, sp:90, atk:99, def:88, speed:94, critR:85, critD:85, wis:35})">
+                    <img src="images/Lemmings.webp" alt="Lemmings">
+                    <div class="name">LEMMINGS</div>
+                </div>
+                <div class="char-item" onclick="selectChar('Tena Sorimura', 'images/TenaSorimura.webp', {str:45, dex:80, int:85, hp:70, mp:95, sp:65, atk:60, def:50, speed:75, critR:50, critD:85, wis:90})">
+                    <img src="images/TenaSorimura.webp" alt="Tena">
+                    <div class="name">TENA SORIMURA</div>
+                </div>
+            `;
+            
+            for(let name in saves) {
+                const s = saves[name].player;
+                html += `
+                <div class="char-item" onclick="selectSavedChar('${name}')">
+                    <img src="${s.avatar}" alt="${name}">
+                    <div class="name">${name} (Lv.${s.level})</div>
+                </div>
+                `;
+            }
+            
+            html += `
+                <div class="char-item create-new" onclick="openCreationScreen()">
+                    <div class="plus">+</div>
+                    <div class="name" style="background: none;">TẠO NHÂN VẬT</div>
+                </div>
+            `;
+            if (grid) grid.innerHTML = html;
+        }
+
         function selectChar(name, img, stats) {
             selectedChar = { name, avatar: img, stats: {...stats} };
             getEl('info-panel').style.display = 'flex';
@@ -523,6 +619,42 @@
                     <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${Math.min(100, stats[k])}%; background:var(--color-${k.toLowerCase()})"></div></div>
                 </div>
             `).join('');
+            
+            getEl('btn-start-new').style.display = 'block';
+            getEl('btn-start-new').innerText = 'BẮT ĐẦU CHƠI';
+            getEl('btn-start-new').style.background = 'var(--accent)';
+            getEl('btn-continue').style.display = 'none';
+        }
+
+        function selectSavedChar(name) {
+            const saves = JSON.parse(localStorage.getItem('mmorpg_arcs_v2_saves') || '{}');
+            const state = saves[name];
+            if(state) {
+                selectedChar = { isSaved: true, name: state.player.name, avatar: state.player.avatar, stats: state.player.stats, savedState: state };
+                getEl('info-panel').style.display = 'flex';
+                getEl('display-name').innerText = state.player.name + ` (Lv.${state.player.level})`;
+                getEl('display-img').src = state.player.avatar;
+                getEl('stats-area').innerHTML = statKeys.map(k => `
+                    <div class="stat-row">
+                        <div class="stat-label"><span>${k.toUpperCase()}</span><span>${state.player.stats[k]}</span></div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${Math.min(100, state.player.stats[k])}%; background:var(--color-${k.toLowerCase()})"></div></div>
+                    </div>
+                `).join('');
+                
+                getEl('btn-start-new').style.display = 'block';
+                getEl('btn-start-new').innerText = 'CHƠI LẠI TỪ ĐẦU';
+                getEl('btn-start-new').style.background = '#ff3333';
+                getEl('btn-continue').style.display = 'block';
+            }
+        }
+
+        function continueGame() {
+            if(!selectedChar || !selectedChar.isSaved) return;
+            gameState = selectedChar.savedState;
+            gameState.actionLocked = false;
+            showScreen('game-world');
+            updateGameUI();
+            addLog("💾", "Tiếp tục cuộc hành trình!", 'system');
         }
 
         function openCreationScreen() {
@@ -568,10 +700,13 @@
             updateCreationUI();
         }
 
-        function finishCreation() {
+        async function finishCreation() {
             const nameInput = getEl('creation-name').value.trim();
-            if(!nameInput) { alert("Vui lòng nhập tên nhân vật!"); return; }
-            if(creationPoints > 0) { if(!confirm(`Bạn còn ${creationPoints} điểm chưa dùng. Vẫn tạo?`)) return; }
+            if(!nameInput) { await customAlert("Vui lòng nhập tên nhân vật!"); return; }
+            if(creationPoints > 0) { 
+                const ans = await customConfirm(`Bạn còn ${creationPoints} điểm chưa dùng. Vẫn tạo?`);
+                if(!ans) return; 
+            }
             
             let avatarSrc = getEl('avatar-preview').src;
             if(!avatarSrc || avatarSrc === window.location.href) { avatarSrc = 'images/TenaSorimura.webp'; } // fallback image
@@ -580,8 +715,21 @@
             startStory();
         }
 
-        async function startStory() {
+        async function startStory(reset = false) {
             if (!selectedChar) return;
+            if (reset) {
+                const ans = await customConfirm("Bạn có chắc muốn chơi lại từ đầu? Mọi dữ liệu của nhân vật này sẽ bị xóa!", "CẢNH BÁO");
+                if(!ans) return;
+            }
+            
+            gameState = getInitialGameState();
+            gameState.player.name = selectedChar.name;
+            gameState.player.avatar = selectedChar.avatar;
+            gameState.player.stats = {...selectedChar.stats};
+            gameState.player.currentHp = selectedChar.stats.hp;
+            gameState.player.currentMp = selectedChar.stats.mp;
+            gameState.player.currentSp = selectedChar.stats.sp;
+
             showScreen('story-screen');
             getEl('story-title').innerText = "HÀNH TRÌNH BẮT ĐẦU";
             const content = getEl('story-content');
@@ -604,16 +752,10 @@
         }
 
         function enterGameWorld() {
-            gameState.player.name = selectedChar.name;
-            gameState.player.avatar = selectedChar.avatar;
-            gameState.player.stats = {...selectedChar.stats};
-            gameState.player.currentHp = selectedChar.stats.hp;
-            gameState.player.currentMp = selectedChar.stats.mp;
-            gameState.player.currentSp = selectedChar.stats.sp;
-            
             showScreen('game-world');
             updateGameUI();
-            addLog("HỆ THỐNG", `Chào mừng ${selectedChar.name}! Hệ thống Cày Quái & Anime Skills đã kích hoạt.`, 'info');
+            addLog("HỆ THỐNG", `Chào mừng ${gameState.player.name}! Hệ thống Cày Quái & Anime Skills đã kích hoạt.`, 'info');
+            saveGame(); // Lưu nhân vật mới ngay khi vào game
         }
         // ==================== ARC & FARMING SYSTEM ====================
         function openArcSelection() {
@@ -795,13 +937,15 @@
         }
 
         function attack() {
-            if(!gameState.inCombat) return;
+            if(!gameState.inCombat || gameState.actionLocked) return;
+            gameState.actionLocked = true;
+            updateActionBar();
             const p = gameState.player;
             const e = gameState.currentEnemy;
             
             triggerAnim('player', 'anim-attack-right');
             setTimeout(() => {
-                let dmg = p.stats.atk;
+                let dmg = p.stats.atk + Math.floor(p.stats.str * 1.5); // Sửa lỗi dame không tăng theo chỉ số
                 if(p.buffs.gear2) dmg *= 2; // Gear 2 buff
                 
                 let isCrit = Math.random() < (p.stats.critR / 100);
@@ -838,11 +982,13 @@
 
         function useSkill(skillId) {
             closeModal('skills-modal');
-            if(!gameState.inCombat) return;
+            if(!gameState.inCombat || gameState.actionLocked) return;
             
             const s = ANIME_SKILLS[skillId];
             if(gameState.player.currentMp < s.mpCost) { addLog("⚠️", "Không đủ MP!", 'system'); return; }
             
+            gameState.actionLocked = true;
+            updateActionBar();
             gameState.player.currentMp -= s.mpCost;
             addLog("🌀", `${gameState.player.name} dùng kỹ năng: ${s.name}!!!`, 'skill');
             
@@ -864,7 +1010,9 @@
         }
 
         function defend() {
-            if(!gameState.inCombat) return;
+            if(!gameState.inCombat || gameState.actionLocked) return;
+            gameState.actionLocked = true;
+            updateActionBar();
             gameState.player.buffs.defending = true;
             const heal = Math.floor(gameState.player.stats.hp * 0.05);
             gameState.player.currentHp = Math.min(gameState.player.stats.hp, gameState.player.currentHp + heal);
@@ -875,7 +1023,11 @@
         }
 
         function enemyTurn() {
-            if(!gameState.inCombat || !gameState.currentEnemy) return;
+            if(!gameState.inCombat || !gameState.currentEnemy) {
+                gameState.actionLocked = false;
+                updateActionBar();
+                return;
+            }
             const p = gameState.player;
             const e = gameState.currentEnemy;
             
@@ -886,12 +1038,14 @@
                     p.buffs.infinity = 0;
                     addLog("🌌", "Vô hạn (Infinity) đã chặn đứng sát thương!", 'skill');
                     showFloatingDmg('player', 0);
+                    gameState.actionLocked = false;
                     return updateGameUI();
                 }
                 if(p.buffs.dodgeNext) {
                     p.buffs.dodgeNext = false;
                     addLog("👤", "Shadow Step giúp bạn né đòn hoàn hảo!", 'skill');
                     showFloatingDmg('player', 'NÉ');
+                    gameState.actionLocked = false;
                     return updateGameUI();
                 }
 
@@ -917,6 +1071,7 @@
                 if(p.buffs.gear2) p.buffs.gear2--;
                 
                 if(p.currentHp <= 0) { p.currentHp = 0; playerDefeated(); }
+                gameState.actionLocked = false;
                 updateGameUI();
             }, 300);
         }
@@ -925,6 +1080,7 @@
             const e = gameState.currentEnemy;
             gameState.player.exp += e.exp;
             gameState.player.gold += e.gold;
+            gameState.actionLocked = false;
             
             addLog("🎉", `Đánh bại ${e.name}! Nhận ${e.exp} EXP, ${e.gold} Gold.`, 'exp');
             
@@ -962,6 +1118,7 @@
             gameState.player.currentHp = Math.floor(gameState.player.stats.hp * 0.5);
             gameState.inCombat = false;
             gameState.currentEnemy = null;
+            gameState.actionLocked = false;
             getEl('combat-scene').style.display = 'none';
             updateGameUI();
         }
@@ -1029,11 +1186,12 @@
         function updateActionBar() {
             const bar = getEl('action-bar');
             if(gameState.inCombat) {
+                const disabled = gameState.actionLocked ? 'disabled' : '';
                 bar.innerHTML = `
-                    <button class="action-btn" style="background:#2a1a1a; border-color:#ff4444;" onclick="attack()">⚔️ TẤN CÔNG</button>
-                    <button class="action-btn" style="background:#1a1a2a; border-color:#4488ff;" onclick="defend()">🛡️ PHÒNG THỦ</button>
-                    <button class="action-btn" style="background:#002a2a; border-color:#00ffd2;" onclick="openSkillsModal()">🌀 KỸ NĂNG</button>
-                    <button class="action-btn" style="background:#2a0a2a; border-color:#ff44aa;" onclick="usePotion()">🧪 DÙNG THUỐC</button>
+                    <button class="action-btn" style="background:#2a1a1a; border-color:#ff4444;" onclick="attack()" ${disabled}>⚔️ TẤN CÔNG</button>
+                    <button class="action-btn" style="background:#1a1a2a; border-color:#4488ff;" onclick="defend()" ${disabled}>🛡️ PHÒNG THỦ</button>
+                    <button class="action-btn" style="background:#002a2a; border-color:#00ffd2;" onclick="openSkillsModal()" ${disabled}>🌀 KỸ NĂNG</button>
+                    <button class="action-btn" style="background:#2a0a2a; border-color:#ff44aa;" onclick="usePotion()" ${disabled}>🧪 DÙNG THUỐC</button>
                 `;
             } else {
                 let arcBtn = '';
@@ -1083,6 +1241,16 @@
             { id: "mp_large", name: "Bình MP Lớn", type: "mp", val: 150, price: 200, emoji: "🌊" }
         ];
 
+        const EQUIPMENT_DB = {
+            "Kiếm Tập Sự": { type: "weapon", name: "Kiếm Tập Sự", stats: { atk: 15, str: 5 }, emoji: "🗡️", desc: "Tăng 15 ATK, 5 STR" },
+            "Giáp Lửa": { type: "armor", name: "Giáp Lửa", stats: { def: 20, hp: 100 }, emoji: "🔥", desc: "Tăng 20 DEF, 100 HP" },
+            "Khiên Băng": { type: "armor", name: "Khiên Băng", stats: { def: 40, hp: 200 }, emoji: "❄️", desc: "Tăng 40 DEF, 200 HP" },
+            "Búa Sấm": { type: "weapon", name: "Búa Sấm", stats: { atk: 60, critD: 20 }, emoji: "⚡", desc: "Tăng 60 ATK, 20% Sát thương CM" },
+            "Cung Gió": { type: "weapon", name: "Cung Gió", stats: { atk: 80, speed: 30, dex: 20 }, emoji: "🌪️", desc: "Tăng 80 ATK, 30 Tốc độ, 20 DEX" },
+            "Khiên Titan": { type: "armor", name: "Khiên Titan", stats: { def: 100, hp: 800 }, emoji: "🛡️", desc: "Tăng 100 DEF, 800 HP" },
+            "Kiếm Hủy Diệt": { type: "weapon", name: "Kiếm Hủy Diệt", stats: { atk: 250, str: 100, critR: 15 }, emoji: "⚔️", desc: "Tăng 250 ATK, 100 STR, 15% Tỉ lệ CM" }
+        };
+
         function openShopModal() {
             getEl('shop-gold').innerText = gameState.player.gold;
             getEl('shop-items').innerHTML = SHOP_ITEMS.map(item => `
@@ -1129,12 +1297,65 @@
                         </div>
                         <button class="action-btn" style="background:#4488ff; color:black; min-width:80px;" onclick="useItemFromInv('${id}')">DÙNG</button>
                     </div>`;
+                } else if(EQUIPMENT_DB[id]) {
+                    const eq = EQUIPMENT_DB[id];
+                    const isEquipped = gameState.player.equipment.weapon === id || gameState.player.equipment.armor === id;
+                    html += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#222; padding:10px; margin-bottom:5px; border-radius:5px; border-left:4px solid #ffaa00;" title="${eq.desc}">
+                        <div>
+                            <strong style="color:white;">${eq.emoji} ${eq.name} (x${countMap[id]})</strong><br>
+                            <small style="color:#ffaa00;">Trang bị: ${eq.type === 'weapon' ? 'Vũ khí' : 'Áo giáp'}</small><br>
+                            <small style="color:#aaa;">${eq.desc}</small>
+                        </div>
+                        <div>
+                            ${isEquipped 
+                                ? `<button class="action-btn" style="background:#ff3333; color:white; min-width:80px;" onclick="unequipItem('${id}')">THÁO</button>`
+                                : `<button class="action-btn" style="background:#ffaa00; color:black; min-width:80px;" onclick="equipItem('${id}')">TRANG BỊ</button>`}
+                        </div>
+                    </div>`;
                 } else {
                     html += `<div style="padding:10px; background:#222; margin-bottom:5px; border-radius:5px; color:#aaa;">🎁 ${id} (x${countMap[id]})</div>`;
                 }
             }
             list.innerHTML = html || '<p style="text-align:center; color:#aaa;">Túi đồ rỗng.</p>';
             openModal('inventory-modal');
+        }
+
+        function equipItem(id) {
+            const eq = EQUIPMENT_DB[id];
+            const p = gameState.player;
+            if (p.equipment[eq.type]) {
+                unequipItem(p.equipment[eq.type], false); // Tháo trang bị cũ
+            }
+            p.equipment[eq.type] = id;
+            for(let key in eq.stats) {
+                if (p.stats[key] !== undefined) p.stats[key] += eq.stats[key];
+                if (key === 'hp') p.currentHp += eq.stats[key];
+                if (key === 'mp') p.currentMp += eq.stats[key];
+                if (key === 'sp') p.currentSp += eq.stats[key];
+            }
+            addLog("⚔️", `Đã trang bị ${eq.name}!`, 'system');
+            openInventoryModal();
+            updateGameUI();
+        }
+
+        function unequipItem(id, refreshModal = true) {
+            const eq = EQUIPMENT_DB[id];
+            const p = gameState.player;
+            if (p.equipment[eq.type] === id) {
+                p.equipment[eq.type] = null;
+                for(let key in eq.stats) {
+                    if (p.stats[key] !== undefined) p.stats[key] -= eq.stats[key];
+                    if (key === 'hp') p.currentHp = Math.max(1, p.currentHp - eq.stats[key]);
+                    if (key === 'mp') p.currentMp = Math.max(0, p.currentMp - eq.stats[key]);
+                    if (key === 'sp') p.currentSp = Math.max(0, p.currentSp - eq.stats[key]);
+                }
+                addLog("⚔️", `Đã tháo ${eq.name}!`, 'system');
+                if(refreshModal) {
+                    openInventoryModal();
+                    updateGameUI();
+                }
+            }
         }
 
         function useItemFromInv(id) {
@@ -1147,7 +1368,7 @@
         }
 
         function usePotion() {
-            if(!gameState.inCombat) return;
+            if(!gameState.inCombat || gameState.actionLocked) return;
             const p = gameState.player;
             const hasHp = p.inventory.find(i => i.startsWith('hp_'));
             const hasMp = p.inventory.find(i => i.startsWith('mp_'));
@@ -1159,6 +1380,8 @@
             
             if(!usedId) { addLog("⚠️", "Không có thuốc trong túi đồ!", 'system'); return; }
             
+            gameState.actionLocked = true;
+            updateActionBar();
             const idx = p.inventory.indexOf(usedId);
             p.inventory.splice(idx, 1);
             applyPotion(usedId);
@@ -1181,41 +1404,35 @@
             if(gameState.inCombat) updateCombatBars();
         }
 
-        function returnToMenu() {
-            if(confirm('Bạn có chắc chắn muốn thoát về Menu? Bạn có thể chọn hoặc tạo nhân vật khác.')) {
+        async function returnToMenu() {
+            const ans = await customConfirm('Bạn có chắc chắn muốn thoát về Menu? Bạn có thể chọn hoặc tạo nhân vật khác.');
+            if(ans) {
                 saveGame();
+                renderSelectionScreen();
                 showScreen('selection-screen');
             }
         }
 
         // ==================== SAVE / LOAD ====================
         function saveGame() {
-            localStorage.setItem('mmorpg_arcs_v2_save', JSON.stringify(gameState));
+            if(!gameState || !gameState.player || !gameState.player.name) return;
+            let saves = JSON.parse(localStorage.getItem('mmorpg_arcs_v2_saves') || '{}');
+            saves[gameState.player.name] = gameState;
+            localStorage.setItem('mmorpg_arcs_v2_saves', JSON.stringify(saves));
             addLog("💾", "Game đã được lưu!", 'system');
         }
 
         function loadGame() {
-            const saved = localStorage.getItem('mmorpg_arcs_v2_save');
-            if(saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    if(data.player && data.player.name) {
-                        gameState = data;
-                        selectedChar = { name: gameState.player.name, avatar: gameState.player.avatar, stats: gameState.player.stats };
-                        showScreen('game-world');
-                        updateGameUI();
-                        addLog("💾", "Đã tải game đã lưu!", 'system');
-                        return true;
-                    }
-                } catch(e) { console.log(e); }
-            }
-            return false;
+            // Không tự động vào game, chỉ chuẩn bị giao diện chọn nhân vật
+            renderSelectionScreen();
+            showScreen('selection-screen');
+            return true;
         }
 
         // INIT
         window.onload = () => {
-            if(!loadGame()) { showScreen('selection-screen'); }
-            setInterval(saveGame, 60000); // Auto save mỗi phút
+            loadGame();
+            setInterval(() => { if(gameState && gameState.player && gameState.player.name) saveGame(); }, 60000); // Auto save mỗi phút
         };
     </script>
 </body>
